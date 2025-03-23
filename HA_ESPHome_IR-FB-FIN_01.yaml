@@ -1,0 +1,64 @@
+# Projekt LED-Band mit D1 mini - Lolin Shield als IR-Fernbedienung in HA per ESPHome & Automation nutzen
+# Folgendes wird von ESPHome erzeugt:
+esphome:
+  name: esp-8266-ir-fb # Name für HA (nur Kleinschrift)
+  friendly_name: ESP-8266_IR_FB # euer frei zu vergebende Namen
+
+esp8266:
+  board: d1_mini # das verwendete Board in diesem Fall D1 Mini 8266
+
+  # Enable logging
+logger:
+  level: DEBUG # damit wir wirklich alle empfangenen Daten bekommen, DEBUG kann nach erfolg gelöscht oder auskommentiert werden
+
+  # Enable Home Assistant API zur Kommunikation mit HA
+api:
+  encryption:
+    key: "UJJPry7c0R/IXHfycXGds0OhNXLcmEECbgMRznqegy4="
+  # Over the Air den Code übertragen
+ota:
+  - platform: esphome
+    password: "65ac67063cb6e1eddbd0ad24948df163"
+  # euere Wifi Zugensdaten bitte in Secrets eintragen und gut ist ;)
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+# der fallback hotspot (captive portal) falls die Verbindung zu eurem Wifi nicht funkt könnt ihr euch direkt zB. mit eurem Handy zum D1 verbinden
+  ap:
+    ssid: "Esp-8266-Ir-Fb Fallback Hotspot"
+    password: "jPDMo7zyGMRg"
+# hier kommt endlich der für das Projekt benötigte Code
+captive_portal:
+# IR-Empfänger konfigurieren (D4 für den Empfänger Lolin IR Shield)
+remote_receiver:
+  pin: 
+    number: D4
+    inverted: True # muss gesetzt werden
+    mode: INPUT_PULLUP # muss gesetzt werden
+  dump: all # zum empfang ALLER relevanten Protokolle
+  tolerance: 50% # sollt in vielen Fällen genügen kann bei Bedarf angepasst werden
+  buffer_size: 2kb # für den ESP8266
+  filter: 100us  # Signale unter 100 Mikrosekunden ignorieren
+
+# IR-Sender konfigurieren (D3 für den Sender Lolin IR Shield)
+remote_transmitter:
+  pin: D3
+  carrier_duty_percent: 50%  # der Sender sollte nicht zu stark senden ! Häufige Fehlerquelle ein zu starkes Signal, hat mich 4h Fehlersuche gekostet !
+# Hier kommen die Dev. für die Schalter in HA mit den vorher ausgelesenen Codes hin. Nicht jedes Protokoll funktioniert mit euren Geräten! Ausprobieren ist hier gefragt !
+# ich hatte noch Pioneer & LG -Protokolle empfangen welche aber für das LED-Band nicht relevant waren! NEC & Pronto funken!
+button:
+  - platform: template
+    name: "NEC LED AN/AUS"
+    # für die Automation muss hier noch eine ID gesetzt werden // kommt später
+    on_press: 
+      - remote_transmitter.transmit_nec:  # Verwende NEC für das AN/Ausschalten
+          address: 0xEF00  # Korrekte Adresse
+          command: 0xFC03  # Kommando für AN/Ausschalten
+# hier kommt der ganze Kladeradatsch nochmal für die Pronto Daten
+  - platform: template
+    name: "Pronto LED AN/AUS"
+    # für die Automation muss hier noch eine ID gesetzt werden // kommt später
+    on_press: 
+      - remote_transmitter.transmit_pronto:
+          data: '0000 006D 0022 0000 015B 00AE 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0040 0016 0040 0016 0040 0016 0040 0016 0016 0016 0040 0016 0040 0016 0040 0016 0040 0016 0040 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0016 0040 0016 0040 0016 0040 0016 0040 0016 0040 0016 0040 0016 0181'
+  
